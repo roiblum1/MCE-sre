@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mce-exporter-config
+  namespace: openshift-mce-monitoring
+data:
+  cluster.name: "production-cluster"  # Change this for each cluster
+  collection.interval: "60"
+  log.level: "INFO"
+  

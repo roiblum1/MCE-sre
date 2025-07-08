@@ -24,10 +24,24 @@ spec:
         env:
         - name: METRICS_PORT
           value: "8080"
-        - name: COLLECTION_INTERVAL
-          value: "60"
         - name: IN_CLUSTER
           value: "true"
+        # Get all configuration from ConfigMap
+        - name: CLUSTER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: mce-exporter-config
+              key: cluster.name
+        - name: COLLECTION_INTERVAL
+          valueFrom:
+            configMapKeyRef:
+              name: mce-exporter-config
+              key: collection.interval
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: mce-exporter-config
+              key: log.level
         resources:
           requests:
             cpu: 100m
@@ -43,7 +57,7 @@ spec:
           periodSeconds: 30
         readinessProbe:
           httpGet:
-            path: /health
+            path: /ready
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 10
