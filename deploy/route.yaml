@@ -1,0 +1,21 @@
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: mce-metrics-exporter
+  namespace: openshift-mce-monitoring
+  labels:
+    app: mce-metrics-exporter
+    app.kubernetes.io/name: mce-metrics-exporter
+    app.kubernetes.io/component: metrics
+spec:
+  to:
+    kind: Service
+    name: mce-metrics-exporter
+    weight: 100
+  port:
+    targetPort: metrics
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
