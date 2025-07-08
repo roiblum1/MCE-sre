@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mce-metrics-exporter
+  labels:
+    app: mce-metrics-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mce-metrics-exporter
+  template:
+    metadata:
+      labels:
+        app: mce-metrics-exporter
+    spec:
+      serviceAccountName: mce-metrics-exporter
+      containers:
+      - name: exporter
+        image: quay.io/your-org/openshift-mce-exporter:latest
+        ports:
+        - containerPort: 8080
+          name: metrics
+        env:
+        - name: METRICS_PORT
+          value: "8080"
+        - name: COLLECTION_INTERVAL
+          value: "60"
+        - name: IN_CLUSTER
+          value: "true"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
