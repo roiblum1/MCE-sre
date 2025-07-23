@@ -1,0 +1,84 @@
+---
+# ServiceAccount for the aggregator on hub cluster
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mce-metrics-aggregator
+  namespace: openshift-mce-monitoring
+---
+# ClusterRole for reading ManagedCluster resources (to discover clusters)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mce-metrics-aggregator
+rules:
+# Read ManagedClusters to discover MCE clusters
+- apiGroups: ["cluster.open-cluster-management.io"]
+  resources: ["managedclusters"]
+  verbs: ["get", "list"]
+# Read secrets for authentication tokens
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+# Read configmaps for configuration
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list"]
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mce-metrics-aggregator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mce-metrics-aggregator
+subjects:
+- kind: ServiceAccount
+  name: mce-metrics-aggregator
+  namespace: openshift-mce-monitoring
+---
+# This ServiceAccount needs to be created on EACH managed cluster
+# to allow the aggregator to access metrics
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mce-aggregator-reader
+  namespace: openshift-mce-monitoring
+---
+# Role on each managed cluster to access the metrics service
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mce-aggregator-reader
+  namespace: openshift-mce-monitoring
+rules:
+- apiGroups: [""]
+  resources: ["services", "endpoints", "pods"]
+  verbs: ["get", "list"]
+---
+# RoleBinding on each managed cluster
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mce-aggregator-reader
+  namespace: openshift-mce-monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mce-aggregator-reader
+subjects:
+- kind: ServiceAccount
+  name: mce-aggregator-reader
+  namespace: openshift-mce-monitoring
+---
+# Create a long-lived token for the service account (OpenShift 4.11+)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mce-aggregator-reader-token
+  namespace: openshift-mce-monitoring
+  annotations:
+    kubernetes.io/service-account.name: mce-aggregator-reader
+type: kubernetes.io/service-account-token

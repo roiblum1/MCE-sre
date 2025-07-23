@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mce-metrics-aggregator
+  namespace: openshift-mce-monitoring
+  labels:
+    app: mce-metrics-aggregator
+    app.kubernetes.io/name: mce-metrics-aggregator
+    app.kubernetes.io/component: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mce-metrics-aggregator
+  template:
+    metadata:
+      labels:
+        app: mce-metrics-aggregator
+        app.kubernetes.io/name: mce-metrics-aggregator
+        app.kubernetes.io/component: monitoring
+    spec:
+      serviceAccountName: mce-metrics-aggregator
+      containers:
+      - name: aggregator
+        image: quay.io/your-org/mce-metrics-aggregator:latest
+        ports:
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
+        env:
+        - name: METRICS_PORT
+          value: "8080"
+        - name: IN_CLUSTER
+          value: "true"
+        - name: CLUSTER_CONFIG_FILE
+          value: "/etc/mce-aggregator/clusters.yaml"
+        - name: COLLECTION_INTERVAL
+          valueFrom:
+            configMapKeyRef:
+              name: mce-aggregator-config
+              key: collection.interval
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: mce-aggregator-config
+              key: log.level
+        volumeMounts:
+        - name: config
+          mountPath: /etc/mce-aggregator
+          readOnly: true
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: mce-aggregator-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mce-metrics-aggregator
+  namespace: openshift-mce-monitoring
+  labels:
+    app: mce-metrics-aggregator
+    app.kubernetes.io/name: mce-metrics-aggregator
+    app.kubernetes.io/component: monitoring
+spec:
+  type: ClusterIP
+  ports:
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: mce-metrics-aggregator
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: mce-metrics-aggregator
+  namespace: openshift-mce-monitoring
+  labels:
+    app: mce-metrics-aggregator
+spec:
+  to:
+    kind: Service
+    name: mce-metrics-aggregator
+    weight: 100
+  port:
+    targetPort: metrics
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+---
+# ServiceMonitor for Prometheus Operator
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mce-metrics-aggregator
+  namespace: openshift-mce-monitoring
+  labels:
+    app: mce-metrics-aggregator
+spec:
+  selector:
+    matchLabels:
+      app: mce-metrics-aggregator
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+    scheme: http
